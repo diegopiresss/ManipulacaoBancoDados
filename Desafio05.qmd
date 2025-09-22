@@ -1,0 +1,93 @@
+---
+title: "desafio5"
+format: pdf
+---
+
+```{r}
+library("RSQLite")
+```
+
+```{r}
+setwd("C:/Users/dipis/OneDrive/Área de Trabalho/Pastas/Matérias/ME315")
+```
+
+```{r}
+db <- dbConnect(SQLite(), 'disco.db')
+```
+
+```{r}
+db
+```
+
+```{r}
+dbListTables(db)
+
+```
+
+```{r}
+dbListFields(db, 'albums')
+
+```
+
+```{r}
+db_albuns <- dbGetQuery(db, ' SELECT * from albums')
+head(db_albuns)
+dim(db_albuns)
+```
+
+```{r}
+res <- dbGetQuery(db, 'SELECT trackid, name FROM tracks ORDER BY name')
+head(res)
+```
+
+```{r}
+ex3a <- dbGetQuery(db, 'SELECT city FROM customers ORDER BY city')
+head(ex3a)
+```
+
+```{r}
+ex3b <- dbGetQuery(db, 'SELECT DISTINCT city FROM customers ORDER BY city')
+head(ex3b)
+```
+
+```{r}
+alb1 <- dbGetQuery(db, 'SELECT Name, albumid FROM tracks where albumid = 1')
+alb1
+```
+
+```{r}
+
+head(dbGetQuery(db, 'SELECT name, albumid, mediatypeid FROM tracks WHERE mediatypeid IN (1,2) ORDER BY name LIMIT 5'))
+
+```
+
+```{r}
+
+head(dbGetQuery(db, 'SELECT trackid, name, albumid FROM tracks WHERE albumid IN (SELECT albumid FROM albums WHERE artistid == 12) LIMIT 5'))
+
+```
+
+```{r}
+
+head(dbGetQuery(db, 'SELECT trackid, name FROM tracks WHERE name GLOB "?ere*"'))
+
+```
+
+```{r}
+sql = "SELECT trackid, name FROM tracks WHERE name GLOB '*[0-9]*'"
+dbGetQuery(db, sql)[1:5,]
+```
+
+```{r}
+# Quantas faixas por disco para o album 1?
+sql = paste('SELECT albumid, COUNT(trackid)',
+            'FROM tracks GROUP BY albumid',
+            'HAVING albumid=1')
+head(dbGetQuery(db, sql)) 
+```
+
+```{r}
+# Quais são os nomes de cada faixa com os respectivos títulos dos álbums?
+head(dbGetQuery(db, 'SELECT trackid, name, title FROM tracks INNER JOIN albums ON albums.albumid = tracks.albumid'))
+
+```
