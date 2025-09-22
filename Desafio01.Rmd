@@ -1,0 +1,58 @@
+---
+title: "Desafio01"
+author: "Diego Pires Silva"
+date: "2025-08-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library("reticulate")
+library("readr")
+py_install("pandas")
+```
+
+```{r}
+
+start_time <- Sys.time()
+dfR = read.csv("flights.csv")
+end_time <- Sys.time()
+
+tempo_final <- end_time - start_time
+tempo_final
+```
+O tempo final na base foi de 1 minuto e 40 segundos
+
+```{r}
+# Utilizado Readr
+start_time2 <- Sys.time()
+df2 = read_csv("flights.csv")
+end_time2 <- Sys.time()
+
+tempo_final2 <- end_time2 - start_time2
+tempo_final2
+```
+O tempo no readr foi 35.5 segundos
+```{r}
+pd <- import("pandas")
+start_time3 <- Sys.time()
+
+df3 <- pd$read_csv("flights.csv")
+
+end_time3 <- Sys.time()
+
+tempo_final3 <- end_time3 - start_time3
+tempo_final3
+
+```
+O tempo em pandas foi de 47.7 segundos
+
+FINAL: 1° ReadR 35.5 segundos, 2° PANDAS 46.7 e base do R com 1:40 minutos
+
+      
+
+
