@@ -1,0 +1,122 @@
+---
+title: "desafio6"
+format: html
+editor: visual
+---
+
+```{r}
+getwd()
+```
+
+```{r}
+# Questão - 1 e 2
+library("RSQLite")
+db <- dbConnect(SQLite(), 'disco.db') # como já estava no mesmo repositório, já conectei diretamente, por é mais simples e pula uma etapa.
+```
+
+```{r}
+# Questão - 3
+tabela <- c(dbListTables(db))
+
+print(tabela)
+
+```
+
+```{r}
+#Questão - 4
+nomes_col <- dbGetQuery(db, "SELECT * FROM customers")
+
+colnames(nomes_col)
+
+
+```
+
+```{r}
+# Questão - 5
+
+dbGetQuery(db, "SELECT COUNT(DISTINCT CustomerId) FROM customers")
+
+# São 59 clientes
+```
+
+```{r}
+# Questão - 6
+
+dbGetQuery(db, "SELECT COUNT(DISTINCT Country) FROM customers")
+
+# São 24 países
+
+
+```
+
+```{r}
+# Questão - 7
+
+dbGetQuery(db, "SELECT Country, COUNT(CustomerId) FROM customers GROUP BY Country ORDER BY COUNT(CustomerId) DESC")
+
+# Usar o count!!! não sum, ainda mais com o id que é um int
+```
+
+```{r}
+# Quesão - 8
+
+dbGetQuery(db, "SELECT Country, COUNT(CustomerId) AS Number_total
+          FROM customers GROUP BY Country ORDER BY Number_total DESC LIMIT 5")
+```
+
+```{r}
+# Questão - 9 
+
+dbGetQuery(db, "SELECT Country, COUNT(DISTINCT CustomerId) AS Numberofcust FROM   Customers WHERE LENGTH(Country) = 6 GROUP BY Country ORDER BY Numberofcust DESC")
+```
+
+```{r}
+# Questão - 10 
+dbGetQuery(db, "SELECT customers.FirstName, customers.Country, tracks.Name 
+           FROM customers 
+           JOIN invoices ON customers.CustomerId = invoices.InvoiceId              JOIN invoice_items on invoices.InvoiceId = invoice_items   .InvoiceId 
+           JOIN tracks on invoices.InvoiceId = tracks.TrackId 
+           WHERE customers.Country = 'Brazil'")
+```
+
+```{r}
+# Questão - 11
+sql = "SELECT country, title FROM (
+  SELECT
+    c.country,
+    a.title,
+    COUNT(*) AS play_count
+  FROM customers c
+    JOIN invoices i ON c.customerid = i.customerid
+    JOIN invoice_items ii ON i.invoiceid = ii.invoiceid
+    JOIN tracks t ON ii.trackid = t.trackid
+    JOIN albums a ON t.albumid = a.albumid
+  GROUP BY c.country, a.title
+  ORDER BY c.country, play_count DESC) 
+  GROUP BY country"
+dbGetQuery(db, sql)
+```
+
+```{r}
+# Questão - 12
+
+sql = "SELECT country, name FROM (
+  SELECT
+    c.country,
+    ar.name,
+    COUNT(*) AS play_count
+  FROM customers c
+    JOIN invoices i ON c.customerid = i.customerid
+    JOIN invoice_items ii ON i.invoiceid = ii.invoiceid
+    JOIN tracks t ON ii.trackid = t.trackid
+    JOIN albums a ON t.albumid = a.albumid
+    JOIN artists ar ON a.artistid = ar.artistid
+  GROUP BY c.country, ar.name
+  ORDER BY c.country, play_count DESC) 
+  GROUP BY country"
+dbGetQuery(db, sql)
+```
+
+```{r}
+dbDisconnect(db)
+```
