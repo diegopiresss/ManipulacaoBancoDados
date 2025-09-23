@@ -1,0 +1,365 @@
+---
+title: "Desafio 4"
+authors:
+  - name: "Nome: Henry Honda, RA: 258141"
+  - name: "Nome: Diego Pires RA: 239489"
+  - name: "Nome: Fernanda Marreiro, RA: 248180"
+editor: visual
+---
+
+Este relatório apresenta a **análise da trajetória** de uma única aeronave em 2015, usando o conjunto de dados `flights.csv.zip`.\
+Optamos pelo ano de 2015, pois, caso todos os voos de uma mesma aeronave fossem exibidos no gráfico, a visualização ficaria sobrecarregada e pouco clara devido à poluição visual. Além disso, escolhemos por um `chunk_size = 1000000` no `read_csv_chunked()` para equilibrar **velocidade** e **uso de memória**.\
+A função `analisa_aeronave` lê apenas os voos do `tail_number` especificado, enriquece com coordenadas reais de aeroportos, calcula métricas de desempenho (velocidade, atraso, pontualidade) e gera um mapa interativo com múltiplas camadas informativas.
+
+------------------------------------------------------------------------
+
+```{r}
+library(tidyverse)
+library(leaflet)
+library(lubridate)
+library(sf)
+library(geosphere)
+library(htmltools)
+```
+
+```{r}
+# Função principal que vai analisar a trajetória de qualquer aeronave
+analisa_aeronave <- function(tail_number, arquivo = "flights.csv") {
+  
+  # ========== FUNÇÕES AUXILIARES ========== #
+  
+  # Função para ler apenas os voos da aeronave que queremos (economiza memória)
+  ler_dados_aeronave <- function(tail_number, file, chunk_size = 1000000) {
+    
+    # Esta função processa cada chunck do arquivo grande
+    process_chunk <- function(x, pos) {
+      x %>%
+        filter(TAIL_NUMBER == tail_number, YEAR == 2015)  # Só pega voos de 2015
+    }
+    
+    # Lê o arquivo em chuncks para não travar o computador
+    df <- readr::read_csv_chunked(
+      file = file,
+      callback = readr::DataFrameCallback$new(process_chunk),
+      chunk_size = chunk_size,
+      progress = FALSE,
+      # Define o tipo de cada coluna (otimiza a leitura)
+      col_types = cols(
+        .default = col_character(),
+        YEAR = col_integer(),
+        MONTH = col_integer(), 
+        DAY = col_integer(),
+        DEPARTURE_TIME = col_integer(),
+        ARRIVAL_TIME = col_integer(),
+        DEPARTURE_DELAY = col_double(),
+        ARRIVAL_DELAY = col_double(),
+        AIR_TIME = col_double(),
+        DISTANCE = col_double()
+      )
+    )
+    
+    # Se não encontrou nada, para a execução
+    if (nrow(df) == 0) {
+      stop("Ops! Não encontrei voos para a aeronave ", tail_number, " em 2015")
+    }
+    
+    # Cria uma coluna de data e ordena os voos cronologicamente
+    df <- df %>%
+      mutate(FL_DATE = make_date(YEAR, MONTH, DAY)) %>%
+      arrange(FL_DATE, DEPARTURE_TIME) %>%
+      filter(!is.na(DEPARTURE_TIME))  # Remove voos sem horário de partida
+    
+    return(df)
+  }
+  
+  # Função para carregar as coordenadas dos aeroportos
+  carregar_aeroportos <- function() {
+    airports_file <- "airports.csv"
+    
+    airports <- readr::read_csv(airports_file, col_types = cols())
+    
+    # Filtra apenas aeroportos com coordenadas válidas
+    airports_coords <- airports %>%
+      select(IATA_CODE, AIRPORT, LATITUDE, LONGITUDE) %>%
+      filter(!is.na(IATA_CODE), !is.na(LATITUDE), !is.na(LONGITUDE))
+    
+    return(airports_coords)
+  }
+  
+  # Função para "juntar" os voos com as coordenadas dos aeroportos
+  enriquecer_com_coordenadas <- function(df_voos, df_aeroportos) {
+    df_enriquecido <- df_voos %>%
+      # Junta info do aeroporto de origem
+      left_join(df_aeroportos, by = c("ORIGIN_AIRPORT" = "IATA_CODE")) %>%
+      rename(ORIGIN_NAME = AIRPORT, ORIGIN_LAT = LATITUDE, ORIGIN_LON = LONGITUDE) %>%
+      # Junta info do aeroporto de destino
+      left_join(df_aeroportos, by = c("DESTINATION_AIRPORT" = "IATA_CODE")) %>%
+      rename(DEST_NAME = AIRPORT, DEST_LAT = LATITUDE, DEST_LON = LONGITUDE) %>%
+      # Só mantém voos onde conseguimos as coordenadas
+      filter(!is.na(ORIGIN_LAT), !is.na(DEST_LAT))
+    
+    return(df_enriquecido)
+  }
+  
+  # Função simples para formatar horários (ex: 1430 vira "1430", NA vira "—")
+  fmt_time <- function(x) ifelse(is.na(x), "—", sprintf("%04d", as.integer(x)))
+  
+  # ========== PROCESSAMENTO PRINCIPAL ==========
+  
+  cat("🛩️  Processando aeronave:", tail_number, "\n")
+  
+  # Passo 1: Carrega todos os voos da aeronave
+  trajeto_completo <- ler_dados_aeronave(tail_number, arquivo)
+  cat("📊 Encontrados", nrow(trajeto_completo), "voos\n")
+  
+  # Passo 2: Carrega dados dos aeroportos
+  airports_coords <- carregar_aeroportos()
+  
+  # Passo 3: Junta voos com coordenadas dos aeroportos
+  trajeto_enriquecido <- enriquecer_com_coordenadas(trajeto_completo, airports_coords)
+  
+  # Passo 4: Calcula métricas interessantes e prepara dados para o mapa
+  dados_finais <- trajeto_enriquecido %>%
+    filter(!is.na(AIR_TIME), AIR_TIME > 0) %>%  # Remove voos inválidos
+    mutate(
+      # Calcula velocidade média em milhas por hora
+      GROUND_SPEED = DISTANCE / (AIR_TIME / 60),
+      
+      # Calcula atraso "líquido" (quanto tempo ganhou/perdeu no ar)
+      NET_DELAY = ARRIVAL_DELAY - DEPARTURE_DELAY,
+      
+      # Classifica cada voo por pontualidade
+      ON_TIME_STATUS = case_when(
+        is.na(ARRIVAL_DELAY) ~ "Sem Informação",
+        ARRIVAL_DELAY < -15 ~ "Adiantado",
+        ARRIVAL_DELAY <= 15 ~ "No Horário", 
+        ARRIVAL_DELAY <= 60 ~ "Atraso Leve",
+        TRUE ~ "Atraso Significativo"
+      ),
+      
+      # Numera os voos em ordem cronológica
+      flight_sequence = row_number(),
+      
+      # Cria HTML bonito para quando clicarem no voo no mapa
+      popup_html = sprintf(
+        "<strong>✈️ Voo %d</strong><br/>
+        <strong>📅 Data:</strong> %s<br/>
+        <strong>🛫 De:</strong> %s (%s)<br/>
+        <strong>🛬 Para:</strong> %s (%s)<br/>
+        <strong>🏢 Companhia:</strong> %s<br/>
+        <strong>🔢 Voo N°:</strong> %s<br/>
+        <strong>🕐 Partida:</strong> %s | <strong>🕐 Chegada:</strong> %s<br/>
+        <strong>⚡ Velocidade:</strong> %.0f mph<br/>
+        <strong>⏱️ Atraso Líquido:</strong> %.0f min",
+        flight_sequence, as.character(FL_DATE),
+        ORIGIN_NAME, ORIGIN_AIRPORT,
+        DEST_NAME, DESTINATION_AIRPORT,
+        AIRLINE, FLIGHT_NUMBER,
+        fmt_time(DEPARTURE_TIME), fmt_time(ARRIVAL_TIME),
+        GROUND_SPEED, coalesce(NET_DELAY, 0)
+      ) %>% lapply(htmltools::HTML)
+    )
+  
+  # ========== CRIANDO O MAPA INTERATIVO ==========
+  
+  cat("🗺️  Gerando mapa interativo...\n")
+  
+  # Calcula os limites geográficos para enquadrar o mapa
+  lng_min <- min(c(dados_finais$ORIGIN_LON, dados_finais$DEST_LON), na.rm = TRUE)
+  lng_max <- max(c(dados_finais$ORIGIN_LON, dados_finais$DEST_LON), na.rm = TRUE)
+  lat_min <- min(c(dados_finais$ORIGIN_LAT, dados_finais$DEST_LAT), na.rm = TRUE)
+  lat_max <- max(c(dados_finais$ORIGIN_LAT, dados_finais$DEST_LAT), na.rm = TRUE)
+  
+  # Cria o mapa base com dois estilos diferentes
+  mapa_final <- leaflet(dados_finais) %>%
+    addProviderTiles(providers$CartoDB.Positron, group = "Mapa Limpo") %>%
+    addProviderTiles(providers$OpenStreetMap, group = "Mapa Detalhado") %>%
+    fitBounds(lng1 = lng_min, lat1 = lat_min, lng2 = lng_max, lat2 = lat_max)
+  
+  # Define cores para os atrasos (verde = bom, vermelho = ruim)
+  pal_delay <- colorNumeric(
+    palette = c("green", "yellow", "orange", "red"), 
+    domain = dados_finais$NET_DELAY,
+    na.color = "gray"
+  )
+  
+  # Calcula a variação de velocidades para ajustar espessura das linhas
+  min_speed <- min(dados_finais$GROUND_SPEED, na.rm = TRUE)
+  max_speed <- max(dados_finais$GROUND_SPEED, na.rm = TRUE)
+  range_speed <- max_speed - min_speed
+  
+  # ========== ADICIONANDO AS CAMADAS DO MAPA ==========
+  
+  # CAMADA 1: Trajetórias individuais (uma linha para cada voo)
+  for (i in 1:nrow(dados_finais)) {
+    voo_atual <- dados_finais[i, ]
+    
+    # Calcula espessura da linha baseada na velocidade do voo
+    if (is.finite(range_speed) && range_speed > 0) {
+      weight_speed <- 2 + 6 * ((voo_atual$GROUND_SPEED - min_speed) / range_speed)
+    } else {
+      weight_speed <- 4  # Padrão se todas velocidades forem iguais
+    }
+    
+    # Cria uma linha curva realista (great circle) entre origem e destino
+    linha_curva <- geosphere::gcIntermediate(
+      c(voo_atual$ORIGIN_LON, voo_atual$ORIGIN_LAT),
+      c(voo_atual$DEST_LON, voo_atual$DEST_LAT),
+      n = 50, addStartEnd = TRUE
+    )
+    
+    # Adiciona a linha no mapa
+    mapa_final <- mapa_final %>%
+      addPolylines(
+        data = as.data.frame(linha_curva),
+        lng = ~lon, lat = ~lat,
+        color = pal_delay(voo_atual$NET_DELAY),  # Cor baseada no atraso
+        weight = weight_speed,                    # Espessura baseada na velocidade
+        opacity = 0.8,
+        popup = voo_atual$popup_html,
+        highlightOptions = highlightOptions(weight = 8, color = "#FFFFFF", 
+                                          bringToFront = TRUE, opacity = 1),
+        group = "Trajetórias dos Voos"
+      )
+  }
+  
+  # Adiciona legenda explicando as cores
+  mapa_final <- mapa_final %>%
+    addLegend(pal = pal_delay, values = dados_finais$NET_DELAY, opacity = 0.7,
+              title = "Atraso Líquido (min)", position = "bottomright",
+              group = "Trajetórias dos Voos")
+  
+  # CAMADA 2: Estatísticas dos aeroportos (círculos nos aeroportos)
+  airports_summary <- bind_rows(
+    dados_finais %>% select(AIRPORT = ORIGIN_AIRPORT, LAT = ORIGIN_LAT, 
+                           LON = ORIGIN_LON, DELAY = DEPARTURE_DELAY),
+    dados_finais %>% select(AIRPORT = DESTINATION_AIRPORT, LAT = DEST_LAT, 
+                           LON = DEST_LON, DELAY = ARRIVAL_DELAY)
+  ) %>%
+    group_by(AIRPORT, LAT, LON) %>%
+    summarise(n_visits = n(), avg_delay = mean(DELAY, na.rm = TRUE), .groups = 'drop') %>%
+    filter(!is.na(LAT))
+  
+  pal_airport_delay <- colorNumeric("YlOrRd", domain = airports_summary$avg_delay)
+  
+  mapa_final <- mapa_final %>%
+    addCircleMarkers(
+      data = airports_summary, lng = ~LON, lat = ~LAT,
+      radius = ~sqrt(n_visits) * 2 + 3,  # Tamanho proporcional ao número de visitas
+      color = ~pal_airport_delay(avg_delay),  # Cor baseada no atraso médio
+      stroke = TRUE, fillOpacity = 0.8,
+      popup = ~sprintf("<strong>🏢 %s</strong><br/>Visitas: %d<br/>Atraso Médio: %.1f min", 
+                      AIRPORT, n_visits, avg_delay),
+      group = "Estatísticas dos Aeroportos"
+    )
+  
+  # CAMADA 3: Pontualidade dos aeroportos (verde = pontual, vermelho = problemático)
+  airports_pontualidade <- bind_rows(
+    dados_finais %>% select(AIRPORT = ORIGIN_AIRPORT, LAT = ORIGIN_LAT, 
+                           LON = ORIGIN_LON, STATUS = ON_TIME_STATUS),
+    dados_finais %>% select(AIRPORT = DESTINATION_AIRPORT, LAT = DEST_LAT, 
+                           LON = DEST_LON, STATUS = ON_TIME_STATUS)
+  ) %>%
+    group_by(AIRPORT, LAT, LON) %>%
+    summarise(
+      n_total = n(),
+      pct_pontual = mean(STATUS %in% c("No Horário", "Adiantado"), na.rm = TRUE) * 100,
+      .groups = "drop"
+    ) %>%
+    filter(!is.na(LAT))
+  
+  pal_pontual <- colorNumeric("Greens", domain = airports_pontualidade$pct_pontual)
+  
+  mapa_final <- mapa_final %>%
+    addCircleMarkers(
+      data = airports_pontualidade, lng = ~LON, lat = ~LAT,
+      radius = ~sqrt(n_total) * 2 + 3,
+      color = ~pal_pontual(pct_pontual),
+      stroke = TRUE, fillOpacity = 0.8,
+      popup = ~sprintf("<strong>📊 %s</strong><br/>Voos: %d<br/>Pontualidade: %.1f%%", 
+                      AIRPORT, n_total, pct_pontual),
+      group = "Pontualidade dos Aeroportos"
+    )
+  
+  # CAMADA 4: Destaca a rota mais frequente
+  flows_summary <- dados_finais %>%
+    group_by(ORIGIN_AIRPORT, DESTINATION_AIRPORT, ORIGIN_LAT, ORIGIN_LON, 
+             DEST_LAT, DEST_LON) %>%
+    summarise(n_flights = n(), .groups = 'drop') %>%
+    arrange(-n_flights)
+  
+  if (nrow(flows_summary) > 0) {
+    rota_top <- flows_summary %>% slice_max(n_flights, n = 1)
+    
+    inter_top <- geosphere::gcIntermediate(
+      c(rota_top$ORIGIN_LON, rota_top$ORIGIN_LAT),
+      c(rota_top$DEST_LON, rota_top$DEST_LAT),
+      n = 50, addStartEnd = TRUE
+    )
+    
+    mapa_final <- mapa_final %>%
+      addPolylines(
+        data = as.data.frame(inter_top), lng = ~lon, lat = ~lat,
+        weight = 8, color = "blue", opacity = 0.9, dashArray = "10,5",
+        popup = sprintf("<strong>🏆 Rota Mais Voada</strong><br/>%s → %s<br/>%d voos",
+                       rota_top$ORIGIN_AIRPORT, rota_top$DESTINATION_AIRPORT, rota_top$n_flights),
+        group = "Rota Mais Frequente"
+      )
+  }
+  
+  # ========== FINALIZANDO O MAPA ==========
+  
+  # Adiciona controles para ligar/desligar as camadas
+  mapa_final <- mapa_final %>%
+    addLayersControl(
+      baseGroups = c("Mapa Limpo", "Mapa Detalhado"),
+      overlayGroups = c("Trajetórias dos Voos", "Estatísticas dos Aeroportos", 
+                       "Pontualidade dos Aeroportos", "Rota Mais Frequente",
+                       "Ícones de Status", "Visão Geral das Rotas"),
+      options = layersControlOptions(collapsed = FALSE)
+    ) %>%
+    # Por padrão, mostra só as trajetórias (as outras ficam ocultas)
+    hideGroup(c("Estatísticas dos Aeroportos", "Pontualidade dos Aeroportos", 
+               "Rota Mais Frequente", "Ícones de Status", "Visão Geral das Rotas")) %>%
+    # Adiciona título no mapa
+    addControl(html = paste0("<h4>✈️ Trajetória da Aeronave ", tail_number, " - 2015</h4>"),
+               position = "topleft")
+  
+  # ========== ESTATÍSTICAS RESUMIDAS ==========
+  
+  resumo <- list(
+    aeronave = tail_number,
+    total_voos = nrow(dados_finais),
+    periodo = paste(min(dados_finais$FL_DATE), "a", max(dados_finais$FL_DATE)),
+    aeroportos_visitados = length(unique(c(dados_finais$ORIGIN_AIRPORT, dados_finais$DESTINATION_AIRPORT))),
+    distancia_total = sum(dados_finais$DISTANCE, na.rm = TRUE),
+    tempo_voo_total = sum(dados_finais$AIR_TIME, na.rm = TRUE),
+    velocidade_media = round(mean(dados_finais$GROUND_SPEED, na.rm = TRUE), 1),
+    atraso_medio = round(mean(dados_finais$NET_DELAY, na.rm = TRUE), 1)
+  )
+  
+  # Mostra um resuminho no console
+  cat("✅ Processamento concluído!\n")
+  cat("📊 Total de voos válidos:", nrow(dados_finais), "\n")
+  cat("🏢 Aeroportos visitados:", resumo$aeroportos_visitados, "\n")
+  cat("⚡ Velocidade média:", resumo$velocidade_media, "mph\n")
+  
+  # Retorna tudo organizadinho numa lista
+  return(list(
+    tabela = dados_finais,     # Dados completos para análises extras
+    mapa = mapa_final,         # Mapa interativo pronto pra usar
+    resumo = resumo            # Estatísticas resumidas
+  ))
+}
+```
+
+```{r}
+resultado <- analisa_aeronave("N431WN")
+```
+
+```{r}
+resultado_inteiro <- analisa_aeronave("N431WN", "flights.csv")
+resultado_inteiro$mapa              # Mostra o mapa
+View(resultado_inteiro$tabela)      # Abre os dados numa planilha
+print(resultado_inteiro$resumo)     # Mostra as estatísticas
+```
