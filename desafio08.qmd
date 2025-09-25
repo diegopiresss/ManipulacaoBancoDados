@@ -1,0 +1,166 @@
+---
+title: "Desafio08"
+format: html
+editor: visual
+---
+
+```{r}
+# ===================================================================
+# Atividade de Análise de Dados Acadêmicos com RSQLite
+# ===================================================================
+
+
+
+# Carrega o pacote necessário para a atividade
+library(RSQLite)
+
+# --- 1. Conexão com o Banco de Dados -------------------------------
+db_file <- "database.sqlite3"
+
+# Verifica se o arquivo existe antes de tentar conectar
+if (!file.exists(db_file)) {
+  stop("Arquivo do banco de dados não encontrado! Faça o download de 'uwmadison.sqlite3' e coloque-o no diretório de trabalho.")
+}
+
+conn <- dbConnect(RSQLite::SQLite(), db_file)
+
+cat("Conexão com o banco de dados 'uwmadison.sqlite3' estabelecida com sucesso.\n\n")
+
+
+# --- 2. Professores que lecionaram Estatística ('STAT') ------------
+
+cat("-------------------------------------------------------------------\n")
+cat("2. Identificando professores de Estatística (STAT)\n")
+cat("-------------------------------------------------------------------\n")
+
+query_professores_stat <- "
+  SELECT DISTINCT i.name
+  FROM instructors i
+  JOIN teachings t ON i.id = t.instructor_id
+  JOIN sections s ON t.section_uuid = s.uuid
+  JOIN course_offerings co ON s.course_offering_uuid = co.uuid
+  JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+  JOIN subjects sub ON sm.subject_code = sub.code
+  WHERE sub.abbreviation = 'STAT'
+  ORDER BY i.name;
+"
+
+# Executa a query e armazena o resultado
+professores_stat <- dbGetQuery(conn, query_professores_stat)
+
+# Exibe os resultados de forma organizada
+cat("Total de professores que lecionaram Estatística:", nrow(professores_stat), "\n\n")
+cat("Lista de professores:\n")
+# Imprime os nomes em formato de lista
+for (nome in professores_stat$name) {
+  cat("- ", nome, "\n")
+}
+cat("\n")
+
+
+# --- 3. Análise de GPA para Disciplinas de Estatística -------------
+
+cat("-------------------------------------------------------------------\n")
+cat("3. Análise de GPA (Fácil vs. Difícil) em Estatística\n")
+cat("-------------------------------------------------------------------\n")
+
+
+query_analise_gpa <- "
+  WITH gpa_por_secao AS (
+    SELECT
+      c.name AS course_name,
+      i.name AS instructor_name,
+      -- Calcula o total de pontos de nota ponderados
+      CAST(
+        (gd.a_count * 4.0) + (gd.ab_count * 3.5) + (gd.b_count * 3.0) +
+        (gd.bc_count * 2.5) + (gd.c_count * 2.0) + (gd.d_count * 1.0) +
+        (gd.f_count * 0.0)
+      AS REAL) AS total_grade_points,
+      -- Calcula o total de alunos com notas válidas para GPA
+      (gd.a_count + gd.ab_count + gd.b_count + gd.bc_count +
+       gd.c_count + gd.d_count + gd.f_count) AS gpa_student_count
+    FROM grade_distributions gd
+    JOIN sections s ON gd.course_offering_uuid = s.course_offering_uuid AND gd.section_number = s.number
+    JOIN teachings t ON s.uuid = t.section_uuid
+    JOIN instructors i ON t.instructor_id = i.id
+    JOIN course_offerings co ON s.course_offering_uuid = co.uuid
+    JOIN courses c ON co.course_uuid = c.uuid
+    JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+    JOIN subjects sub ON sm.subject_code = sub.code
+    WHERE sub.abbreviation = 'STAT'
+  )
+  -- A query final agrega os dados da CTE
+  SELECT
+    instructor_name,
+    course_name,
+    SUM(total_grade_points) AS total_points,
+    SUM(gpa_student_count) AS total_students
+  FROM gpa_por_secao
+  -- Filtra seções onde nenhum aluno recebeu nota válida para GPA
+  WHERE gpa_student_count > 0
+  GROUP BY instructor_name, course_name;
+"
+
+dados_gpa <- dbGetQuery(conn, query_analise_gpa)
+
+
+# a) Professor mais difícil (menor GPA médio ponderado)
+gpa_professores <- aggregate(
+  cbind(total_points, total_students) ~ instructor_name,
+  data = dados_gpa,
+  FUN = sum
+)
+# Calcula o GPA médio ponderado final para cada professor
+gpa_professores$avg_gpa <- gpa_professores$total_points / gpa_professores$total_students
+# Ordena do menor GPA (mais difícil) para o maior (mais fácil)
+gpa_professores <- gpa_professores[order(gpa_professores$avg_gpa), ]
+
+professor_dificil <- head(gpa_professores, 1)
+professor_facil <- tail(gpa_professores, 1)
+
+cat("a) Professor mais difícil (menor GPA médio):\n")
+cat(sprintf("   - Nome: %s\n   - GPA Médio: %.4f\n\n", professor_dificil$instructor_name, professor_dificil$avg_gpa))
+
+# b) Professor mais fácil (maior GPA médio ponderado)
+cat("b) Professor mais fácil (maior GPA médio):\n")
+cat(sprintf("   - Nome: %s\n   - GPA Médio: %.4f\n\n", professor_facil$instructor_name, professor_facil$avg_gpa))
+
+
+# c) Disciplina mais difícil (menor GPA médio ponderado)
+gpa_disciplinas <- aggregate(
+  cbind(total_points, total_students) ~ course_name,
+  data = dados_gpa,
+  FUN = sum
+)
+# Calcula o GPA médio ponderado final para cada disciplina
+gpa_disciplinas$avg_gpa <- gpa_disciplinas$total_points / gpa_disciplinas$total_students
+# Ordena do menor GPA (mais difícil) para o maior (mais fácil)
+gpa_disciplinas <- gpa_disciplinas[order(gpa_disciplinas$avg_gpa), ]
+
+disciplina_dificil <- head(gpa_disciplinas, 1)
+disciplina_facil <- tail(gpa_disciplinas, 1)
+
+cat("c) Disciplina mais difícil (menor GPA médio):\n")
+cat(sprintf("   - Nome: %s\n   - GPA Médio: %.4f\n\n", disciplina_dificil$course_name, disciplina_dificil$avg_gpa))
+
+# d) Disciplina mais fácil (maior GPA médio ponderado)
+cat("d) Disciplina mais fácil (maior GPA médio):\n")
+cat(sprintf("   - Nome: %s\n   - GPA Médio: %.4f\n\n", disciplina_facil$course_name, disciplina_facil$avg_gpa))
+
+
+# --- 4. Desconexão do Banco de Dados ---------------------------------
+dbDisconnect(conn)
+cat("-------------------------------------------------------------------\n")
+cat("Conexão com o banco de dados encerrada.\n")
+cat("-------------------------------------------------------------------\n")
+```
+
+```{r}
+getwd()
+```
+
+```{r}
+timestamp_formatado <- format(Sys.time(), "Documento gerado em %d de %B de %Y, às %H:%M:%S")
+
+cat(timestamp_formatado)
+```
