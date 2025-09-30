@@ -1,0 +1,127 @@
+---
+title: "Desafio09"
+format: html
+editor: visual
+---
+
+```{r}
+#| message: false
+library(readr)
+library(RSQLite)
+library(dplyr)
+```
+
+```{r}
+conexao <- dbConnect(RSQLite::SQLite(), "voos.sqlite3")
+#db.disconnect(conexao)
+```
+
+```{r}
+#| eval: false
+#| include: false
+#dbExecute(conexao, paste0("DELETE FROM ", "voos")) remover de uma tabela
+```
+
+```{r}
+
+primeira_insercao = TRUE
+
+gerador_de_callbacks <- function(conexao, nome_tabela) {
+  
+  primeira_insercao = TRUE
+
+  callback_inserir_dados <- function(chunk, pos) {
+  dbWriteTable(conexao, nome_tabela, chunk, overwrite = TRUE, !primeira_insercao)
+  primeira_insercao <<- FALSE
+  # cuidado com o overwrite true
+  }
+  
+  callback_objeto <- SideEffectChunkCallback$new(callback_inserir_dados)
+
+}
+
+callback_airlines <- gerador_de_callbacks(conexao, "airlines")
+
+read_csv_chunked(
+  "airlines.csv",
+  callback = callback_airlines,
+  chunk_size = 200,
+)
+
+callback_airports <- gerador_de_callbacks(conexao, "airports")
+
+read_csv_chunked(
+  "airports.csv",
+  callback = callback_airports,
+  chunk_size = 200
+  
+)
+```
+
+```{r}
+#| eval: false
+#| include: false
+dbExecute(conexao, "DELETE FROM flights")
+```
+
+```{r}
+callbacK_ler_voos <- function(conexao) {
+  
+  primeira_insercao_voos <- TRUE
+  
+  ler_dados <- function(input, pos) {
+    message(paste0("Lendo chunk ", pos, "..."))
+    
+    aeroportos_selecionados <- c("BWI", "MIA", "SEA", "SFO", "JFK")
+    
+    chunk_filtrado <- input %>% 
+      filter(ORIGIN_AIRPORT %in% aeroportos_selecionados | DESTINATION_AIRPORT %in% aeroportos_selecionados) %>% select(YEAR, MONTH, DAY, AIRLINE, FLIGHT_NUMBER, ORIGIN_AIRPORT, DESTINATION_AIRPORT, ARRIVAL_DELAY)
+    
+    dbWriteTable(conexao, name = "flights", value = chunk_filtrado, overwrite = TRUE, append = !primeira_insercao_voos)
+    
+    primeira_insercao_voos <<- FALSE
+  }
+  
+  SideEffectChunkCallback$new(ler_dados)
+}
+  
+callback_voos <- callbacK_ler_voos(conexao)
+
+read_csv_chunked("flights.csv", callback = callback_voos, chunk_size = 100000)
+
+  
+```
+
+```{r}
+#| eval: false
+#| message: false
+#| include: false
+dbGetQuery(conexao, "SELECT * from flights")
+```
+
+```{r}
+consulta <- "SELECT
+  airports.IATA_CODE,
+  flights.DESTINATION_AIRPORT,
+  airlines.IATA_CODE,
+  AVG(flights.ARRIVAL_DELAY)
+FROM
+  flights
+LEFT JOIN
+  airports ON flights.DESTINATION_AIRPORT = airports.IATA_CODE
+LEFT JOIN
+  airlines ON flights.DESTINATION_AIRPORT = airlines.IATA_CODE
+GROUP BY
+  flights.DESTINATION_AIRPORT,
+  airports.IATA_CODE
+ORDER BY
+  AVG(flights.ARRIVAL_DELAY) DESC;
+"
+dbGetQuery(conexao, consulta)
+```
+
+```{r}
+timestamp_formatado <- format(Sys.time(), "Documento gerado em %d de %B de %Y, às %H:%M:%S")
+
+cat(timestamp_formatado)
+```

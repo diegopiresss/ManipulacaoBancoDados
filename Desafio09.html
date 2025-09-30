@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Desafio09</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="Desafio09_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Desafio09_files/libs/quarto-html/quarto.js"></script>
+<script src="Desafio09_files/libs/quarto-html/popper.min.js"></script>
+<script src="Desafio09_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Desafio09_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Desafio09_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Desafio09_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Desafio09_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Desafio09_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Desafio09_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Desafio09</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readr)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(RSQLite)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>conexao <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(RSQLite<span class="sc">::</span><span class="fu">SQLite</span>(), <span class="st">"voos.sqlite3"</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">#db.disconnect(conexao)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>primeira_insercao <span class="ot">=</span> <span class="cn">TRUE</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>gerador_de_callbacks <span class="ot">&lt;-</span> <span class="cf">function</span>(conexao, nome_tabela) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  primeira_insercao <span class="ot">=</span> <span class="cn">TRUE</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  callback_inserir_dados <span class="ot">&lt;-</span> <span class="cf">function</span>(chunk, pos) {</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dbWriteTable</span>(conexao, nome_tabela, chunk, <span class="at">overwrite =</span> <span class="cn">TRUE</span>, <span class="sc">!</span>primeira_insercao)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  primeira_insercao <span class="ot">&lt;&lt;-</span> <span class="cn">FALSE</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># cuidado com o overwrite true</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  callback_objeto <span class="ot">&lt;-</span> SideEffectChunkCallback<span class="sc">$</span><span class="fu">new</span>(callback_inserir_dados)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>callback_airlines <span class="ot">&lt;-</span> <span class="fu">gerador_de_callbacks</span>(conexao, <span class="st">"airlines"</span>)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="fu">read_csv_chunked</span>(</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="st">"airlines.csv"</span>,</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">callback =</span> callback_airlines,</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">chunk_size =</span> <span class="dv">200</span>,</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  IATA_CODE = col_character(),
+  AIRLINE = col_character()
+)</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>callback_airports <span class="ot">&lt;-</span> <span class="fu">gerador_de_callbacks</span>(conexao, <span class="st">"airports"</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">read_csv_chunked</span>(</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"airports.csv"</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">callback =</span> callback_airports,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">chunk_size =</span> <span class="dv">200</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  IATA_CODE = col_character(),
+  AIRPORT = col_character(),
+  CITY = col_character(),
+  STATE = col_character(),
+  COUNTRY = col_character(),
+  LATITUDE = col_double(),
+  LONGITUDE = col_double()
+)</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>callbacK_ler_voos <span class="ot">&lt;-</span> <span class="cf">function</span>(conexao) {</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  primeira_insercao_voos <span class="ot">&lt;-</span> <span class="cn">TRUE</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  ler_dados <span class="ot">&lt;-</span> <span class="cf">function</span>(input, pos) {</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">message</span>(<span class="fu">paste0</span>(<span class="st">"Lendo chunk "</span>, pos, <span class="st">"..."</span>))</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    aeroportos_selecionados <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"BWI"</span>, <span class="st">"MIA"</span>, <span class="st">"SEA"</span>, <span class="st">"SFO"</span>, <span class="st">"JFK"</span>)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    chunk_filtrado <span class="ot">&lt;-</span> input <span class="sc">%&gt;%</span> </span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(ORIGIN_AIRPORT <span class="sc">%in%</span> aeroportos_selecionados <span class="sc">|</span> DESTINATION_AIRPORT <span class="sc">%in%</span> aeroportos_selecionados) <span class="sc">%&gt;%</span> <span class="fu">select</span>(YEAR, MONTH, DAY, AIRLINE, FLIGHT_NUMBER, ORIGIN_AIRPORT, DESTINATION_AIRPORT, ARRIVAL_DELAY)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">dbWriteTable</span>(conexao, <span class="at">name =</span> <span class="st">"flights"</span>, <span class="at">value =</span> chunk_filtrado, <span class="at">overwrite =</span> <span class="cn">TRUE</span>, <span class="at">append =</span> <span class="sc">!</span>primeira_insercao_voos)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    primeira_insercao_voos <span class="ot">&lt;&lt;-</span> <span class="cn">FALSE</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>  SideEffectChunkCallback<span class="sc">$</span><span class="fu">new</span>(ler_dados)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>callback_voos <span class="ot">&lt;-</span> <span class="fu">callbacK_ler_voos</span>(conexao)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="fu">read_csv_chunked</span>(<span class="st">"flights.csv"</span>, <span class="at">callback =</span> callback_voos, <span class="at">chunk_size =</span> <span class="dv">100000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+── Column specification ────────────────────────────────────────────────────────
+cols(
+  .default = col_double(),
+  AIRLINE = col_character(),
+  TAIL_NUMBER = col_character(),
+  ORIGIN_AIRPORT = col_character(),
+  DESTINATION_AIRPORT = col_character(),
+  SCHEDULED_DEPARTURE = col_character(),
+  DEPARTURE_TIME = col_character(),
+  WHEELS_OFF = col_character(),
+  WHEELS_ON = col_character(),
+  SCHEDULED_ARRIVAL = col_character(),
+  ARRIVAL_TIME = col_character(),
+  CANCELLATION_REASON = col_character()
+)
+ℹ Use `spec()` for the full column specifications.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Lendo chunk 1...</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>consulta <span class="ot">&lt;-</span> <span class="st">"SELECT</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="st">  airports.IATA_CODE,</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="st">  flights.DESTINATION_AIRPORT,</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="st">  airlines.IATA_CODE,</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="st">  AVG(flights.ARRIVAL_DELAY)</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="st">FROM</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="st">  flights</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="st">LEFT JOIN</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="st">  airports ON flights.DESTINATION_AIRPORT = airports.IATA_CODE</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="st">LEFT JOIN</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="st">  airlines ON flights.DESTINATION_AIRPORT = airlines.IATA_CODE</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="st">GROUP BY</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="st">  flights.DESTINATION_AIRPORT,</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="st">  airports.IATA_CODE</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="st">ORDER BY</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="st">  AVG(flights.ARRIVAL_DELAY) DESC;</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="st">"</span></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="fu">dbGetQuery</span>(conexao, consulta)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>    IATA_CODE DESTINATION_AIRPORT IATA_CODE AVG(flights.ARRIVAL_DELAY)
+1         EGE                 EGE      &lt;NA&gt;                 80.3846154
+2         LIT                 LIT      &lt;NA&gt;                 59.7142857
+3         GRR                 GRR      &lt;NA&gt;                 52.8333333
+4        &lt;NA&gt;                 OTH      &lt;NA&gt;                 47.6666667
+5         BNA                 BNA      &lt;NA&gt;                 41.8222222
+6        &lt;NA&gt;                 MTJ      &lt;NA&gt;                 41.0000000
+7        &lt;NA&gt;                 OMA      &lt;NA&gt;                 40.8571429
+8         DAY                 DAY      &lt;NA&gt;                 37.5333333
+9        &lt;NA&gt;                 SAT      &lt;NA&gt;                 36.5555556
+10        AUS                 AUS      &lt;NA&gt;                 35.4597701
+11       &lt;NA&gt;                 OKC      &lt;NA&gt;                 35.3846154
+12        BZN                 BZN      &lt;NA&gt;                 34.3333333
+13       &lt;NA&gt;                 TUL      &lt;NA&gt;                 32.0000000
+14        JAX                 JAX      &lt;NA&gt;                 30.7500000
+15        MCI                 MCI      &lt;NA&gt;                 30.7500000
+16        IND                 IND      &lt;NA&gt;                 30.5333333
+17       &lt;NA&gt;                 ORF      &lt;NA&gt;                 29.0810811
+18        FNT                 FNT      &lt;NA&gt;                 28.5454545
+19        BUF                 BUF      &lt;NA&gt;                 27.9863014
+20       &lt;NA&gt;                 TUS      &lt;NA&gt;                 27.7586207
+21       &lt;NA&gt;                 SDF      &lt;NA&gt;                 27.5294118
+22        EUG                 EUG      &lt;NA&gt;                 27.4615385
+23       &lt;NA&gt;                 RSW      &lt;NA&gt;                 27.2857143
+24        DEN                 DEN      &lt;NA&gt;                 27.0751880
+25        HNL                 HNL      &lt;NA&gt;                 27.0581395
+26        ALB                 ALB      &lt;NA&gt;                 26.3928571
+27       &lt;NA&gt;                 SYR      &lt;NA&gt;                 25.7894737
+28       &lt;NA&gt;                 SUN      &lt;NA&gt;                 24.8333333
+29        CVG                 CVG      &lt;NA&gt;                 24.7307692
+30       &lt;NA&gt;                 PBI      &lt;NA&gt;                 24.1369863
+31       &lt;NA&gt;                 ROC      &lt;NA&gt;                 24.0312500
+32       &lt;NA&gt;                 PNS      &lt;NA&gt;                 23.8421053
+33        ISP                 ISP      &lt;NA&gt;                 23.6000000
+34        JFK                 JFK      &lt;NA&gt;                 23.3960287
+35       &lt;NA&gt;                 RDU      &lt;NA&gt;                 23.0909091
+36        DAL                 DAL      &lt;NA&gt;                 22.8717949
+37        CEC                 CEC      &lt;NA&gt;                 22.7272727
+38        ASE                 ASE      &lt;NA&gt;                 22.2727273
+39       &lt;NA&gt;                 STL      &lt;NA&gt;                 22.2241379
+40        LGA                 LGA      &lt;NA&gt;                 22.0615385
+41        ECP                 ECP      &lt;NA&gt;                 21.8000000
+42        DCA                 DCA      &lt;NA&gt;                 21.3508772
+43        BDL                 BDL      &lt;NA&gt;                 21.1111111
+44        CMH                 CMH      &lt;NA&gt;                 20.8400000
+45       &lt;NA&gt;                 PIT      &lt;NA&gt;                 20.5652174
+46        FLL                 FLL      &lt;NA&gt;                 20.4583333
+47       &lt;NA&gt;                 MRY      &lt;NA&gt;                 20.2777778
+48        BTV                 BTV      &lt;NA&gt;                 20.2222222
+49        HOU                 HOU      &lt;NA&gt;                 19.9310345
+50       &lt;NA&gt;                 OGG      &lt;NA&gt;                 19.6538462
+51        DFW                 DFW      &lt;NA&gt;                 18.7773723
+52       &lt;NA&gt;                 SJU      &lt;NA&gt;                 18.6645161
+53       &lt;NA&gt;                 MHT      &lt;NA&gt;                 18.4358974
+54       &lt;NA&gt;                 PDX      &lt;NA&gt;                 18.0080000
+55        KOA                 KOA      &lt;NA&gt;                 17.7407407
+56       &lt;NA&gt;                 OAK      &lt;NA&gt;                 17.7205882
+57       &lt;NA&gt;                 TPA      &lt;NA&gt;                 17.6486486
+58       &lt;NA&gt;                 ORD      &lt;NA&gt;                 17.5781250
+59        BHM                 BHM      &lt;NA&gt;                 17.5416667
+60        BFL                 BFL      &lt;NA&gt;                 17.5384615
+61        GEG                 GEG      &lt;NA&gt;                 17.2941176
+62        IAH                 IAH      &lt;NA&gt;                 17.2755102
+63       &lt;NA&gt;                 SBP      &lt;NA&gt;                 16.8709677
+64       &lt;NA&gt;                 PSC      &lt;NA&gt;                 16.8333333
+65        JAC                 JAC      &lt;NA&gt;                 16.7777778
+66        MCO                 MCO      &lt;NA&gt;                 16.6215139
+67        BOS                 BOS      &lt;NA&gt;                 16.4948454
+68        LAS                 LAS      &lt;NA&gt;                 16.3285714
+69        ABQ                 ABQ      &lt;NA&gt;                 16.2812500
+70       &lt;NA&gt;                 MKE      &lt;NA&gt;                 16.2000000
+71        KTN                 KTN      &lt;NA&gt;                 16.1052632
+72       &lt;NA&gt;                 PWM      &lt;NA&gt;                 16.0937500
+73       &lt;NA&gt;                 MIA      &lt;NA&gt;                 16.0803881
+74        BOI                 BOI      &lt;NA&gt;                 16.0000000
+75       &lt;NA&gt;                 RIC      &lt;NA&gt;                 16.0000000
+76       &lt;NA&gt;                 SEA      &lt;NA&gt;                 15.1888528
+77        BLI                 BLI      &lt;NA&gt;                 14.6666667
+78        CHS                 CHS      &lt;NA&gt;                 14.5102041
+79       &lt;NA&gt;                 SAV      &lt;NA&gt;                 14.3846154
+80       &lt;NA&gt;                 PVD      &lt;NA&gt;                 14.3777778
+81       &lt;NA&gt;                 SMF      &lt;NA&gt;                 14.3636364
+82        FAT                 FAT      &lt;NA&gt;                 14.0263158
+83        COS                 COS      &lt;NA&gt;                 14.0000000
+84        MDW                 MDW      &lt;NA&gt;                 13.9298246
+85        IAD                 IAD      &lt;NA&gt;                 13.7652174
+86        DTW                 DTW      &lt;NA&gt;                 13.6428571
+87       &lt;NA&gt;                 SJC      &lt;NA&gt;                 13.2682927
+88        ATL                 ATL      &lt;NA&gt;                 12.8603175
+89        ACV                 ACV      &lt;NA&gt;                 12.5806452
+90       &lt;NA&gt;                 STT      &lt;NA&gt;                 12.4375000
+91        BWI                 BWI      &lt;NA&gt;                 12.3921035
+92       &lt;NA&gt;                 PSP      &lt;NA&gt;                 12.1494253
+93       &lt;NA&gt;                 MSY      &lt;NA&gt;                 11.5806452
+94       &lt;NA&gt;                 STX      &lt;NA&gt;                 11.0833333
+95        GSP                 GSP      &lt;NA&gt;                 10.8333333
+96        CLE                 CLE      &lt;NA&gt;                 10.7297297
+97       &lt;NA&gt;                 PHL      &lt;NA&gt;                 10.4954128
+98       &lt;NA&gt;                 RNO      &lt;NA&gt;                 10.3421053
+99       &lt;NA&gt;                 PHX      &lt;NA&gt;                 10.0842105
+100       CLT                 CLT      &lt;NA&gt;                  9.9864253
+101       EWR                 EWR      &lt;NA&gt;                  9.7204301
+102      &lt;NA&gt;                 RDD      &lt;NA&gt;                  9.2666667
+103       ANC                 ANC      &lt;NA&gt;                  9.0366972
+104       MEM                 MEM      &lt;NA&gt;                  8.8333333
+105      &lt;NA&gt;                 PSE      &lt;NA&gt;                  8.8333333
+106      &lt;NA&gt;                 RDM      &lt;NA&gt;                  8.8181818
+107       JNU                 JNU      &lt;NA&gt;                  8.2307692
+108       GNV                 GNV      &lt;NA&gt;                  8.1428571
+109      &lt;NA&gt;                 ONT      &lt;NA&gt;                  8.0754717
+110      &lt;NA&gt;                 SFO      &lt;NA&gt;                  7.9950178
+111      &lt;NA&gt;                 MSP      &lt;NA&gt;                  7.9365079
+112      &lt;NA&gt;                 SNA      &lt;NA&gt;                  7.8803419
+113       LAX                 LAX      &lt;NA&gt;                  7.7888000
+114       HDN                 HDN      &lt;NA&gt;                  7.6666667
+115       BUR                 BUR      &lt;NA&gt;                  7.2222222
+116      &lt;NA&gt;                 SLC      &lt;NA&gt;                  6.7810651
+117      &lt;NA&gt;                 SBA      &lt;NA&gt;                  6.6250000
+118       MFR                 MFR      &lt;NA&gt;                  5.9000000
+119      &lt;NA&gt;                 TLH      &lt;NA&gt;                  5.6521739
+120       BQN                 BQN      &lt;NA&gt;                  4.2727273
+121      &lt;NA&gt;                 SAN      &lt;NA&gt;                  4.1125541
+122       LGB                 LGB      &lt;NA&gt;                  3.9591837
+123      &lt;NA&gt;                 MMH      &lt;NA&gt;                  3.8000000
+124       LIH                 LIH      &lt;NA&gt;                  2.5000000
+125       EYW                 EYW      &lt;NA&gt;                 -0.7647059
+126       GSO                 GSO      &lt;NA&gt;                 -1.0000000
+127      &lt;NA&gt;                 SRQ      &lt;NA&gt;                 -3.1428571
+128       FAI                 FAI      &lt;NA&gt;                 -5.7222222</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>timestamp_formatado <span class="ot">&lt;-</span> <span class="fu">format</span>(<span class="fu">Sys.time</span>(), <span class="st">"Documento gerado em %d de %B de %Y, às %H:%M:%S"</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(timestamp_formatado)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Documento gerado em 30 de setembro de 2025, às 11:07:48</code></pre>
+</div>
+</div>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
